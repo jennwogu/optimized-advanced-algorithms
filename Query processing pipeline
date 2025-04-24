@@ -1,0 +1,119 @@
+# Real-time query processing pipeline designed to handle conversational, hyperlocal, and public health queries
+# It utilizes multi-source datasets, cloud-native microservices, and semantic search with transformers
+
+import kafka
+from kafka import KafkaProducer
+from transformers import BertTokenizer, BertForQuestionAnswering
+from sklearn.metrics.pairwise import cosine_similarity
+from sentence_transformers import SentenceTransformer
+import boto3  # For cloud-native services (e.g., AWS SageMaker)
+import mlflow
+import mlflow.sklearn
+import time
+import json
+
+# --------------------- Data Ingestion ---------------------
+# Connect to Kafka producer to stream conversational and social media data
+def produce_data_to_kafka(topic, message):
+    producer = KafkaProducer(bootstrap_servers='localhost:9092', value_serializer=lambda x: json.dumps(x).encode('utf-8'))
+    producer.send(topic, value=message)
+    producer.flush()
+    print(f"Data sent to Kafka: {message}")
+
+# Example conversational query to test streaming
+message = {
+    'user_id': '12345',
+    'query': 'What can I do about headaches from stress?',
+    'source': 'user_study'  # Could be 'social_media', 'public_health', etc.
+}
+
+produce_data_to_kafka('conversation_queries', message)
+
+# --------------------- Data Processing ---------------------
+# Using Sentence Transformers for semantic search and retrieval
+def semantic_search(query, documents):
+    model = SentenceTransformer('paraphrase-MiniLM-L6-v2')  # Pre-trained transformer model for sentence embeddings
+    query_embedding = model.encode([query])
+    doc_embeddings = model.encode(documents)
+    similarities = cosine_similarity(query_embedding, doc_embeddings)
+    
+    # Returning the most relevant document based on cosine similarity
+    best_match = documents[similarities.argmax()]
+    return best_match
+
+# Example documents for testing (could come from datasets)
+documents = [
+    "Excessive stress can lead to frequent headaches. Try deep breathing exercises.",
+    "Humana offers a variety of health plans that can cover medical and wellness services."
+]
+
+# Query example for stress headaches
+best_match = semantic_search("What can I do about headaches from stress?", documents)
+print(f"Best match for query: {best_match}")
+
+# --------------------- Real-Time Processing with Transformer Models ---------------------
+# Using BERT for question-answering tasks
+def get_answer_from_bert_model(query):
+    model = BertForQuestionAnswering.from_pretrained('bert-large-uncased-whole-word-masking-finetuned-squad')
+    tokenizer = BertTokenizer.from_pretrained('bert-large-uncased-whole-word-masking-finetuned-squad')
+    
+    # Example context to retrieve answers from
+    context = "Stress-related headaches can be alleviated by practicing mindfulness and taking breaks."
+    inputs = tokenizer.encode_plus(query, context, add_special_tokens=True, return_tensors='pt')
+    
+    # Getting answer from BERT model
+    start_scores, end_scores = model(**inputs)
+    answer_start = torch.argmax(start_scores)
+    answer_end = torch.argmax(end_scores)
+    answer = tokenizer.convert_tokens_to_string(tokenizer.convert_ids_to_tokens(inputs['input_ids'][0][answer_start:answer_end+1]))
+    
+    return answer
+
+# Test question-answering for stress-related query
+answer = get_answer_from_bert_model("What can I do about headaches from stress?")
+print(f"Answer from BERT model: {answer}")
+
+# --------------------- Cloud-Native Microservices with Kafka & Semantic Search ---------------------
+# Deploying semantic search as a cloud-native microservice
+def deploy_microservice(query):
+    # Simulating a microservice call using semantic search
+    service_response = semantic_search(query, documents)
+    return service_response
+
+# Deploy with Kafka and Amazon SageMaker for scalability
+def deploy_with_sagemaker(query):
+    # Simulating a cloud deployment using Amazon SageMaker for model management
+    sagemaker_client = boto3.client('sagemaker')
+    
+    # Placeholder for deploying a model (replace with actual SageMaker deployment code)
+    print(f"Deploying model to SageMaker with query: {query}")
+    
+    return deploy_microservice(query)
+
+# Test cloud-native microservice
+response = deploy_with_sagemaker("What can I do about headaches from stress?")
+print(f"Microservice response: {response}")
+
+# --------------------- CI/CD and MLOps ---------------------
+# Integrating MLflow for model tracking and deployment management
+def track_model_with_mlflow(model):
+    mlflow.start_run()
+    mlflow.log_param("model_type", "BERT")
+    mlflow.sklearn.log_model(model, "bert_model")
+    mlflow.end_run()
+
+# Simulating model tracking for real-time queries
+tracked_model = BertForQuestionAnswering.from_pretrained('bert-large-uncased-whole-word-masking-finetuned-squad')
+track_model_with_mlflow(tracked_model)
+
+# --------------------- Real-Time Monitoring ---------------------
+# Placeholder function for monitoring real-time system performance
+def monitor_system_performance():
+    # Simulate monitoring by logging system stats
+    print("Monitoring system performance: Checking resource usage and load balancing.")
+    time.sleep(2)
+    print("System performance stable.")
+
+# Simulate system performance monitoring
+monitor_system_performance()
+
