@@ -1,0 +1,86 @@
+# LLM Conversational Flow Algorithms for Transactivity-Informed Dialogue
+# Description: This script defines algorithms used to optimize query segmentation,
+# intent inference, topic reclassification, follow-up selection, and context-aware
+# knowledge graph querying as part of a system to enhance ICT conversational agents.
+
+from transformers import pipeline
+
+# ---------------------------
+# Algorithm 1: Query Segmentation & Intent Inference
+# ---------------------------
+
+# Segment compound query into distinct parts
+def segment_query(user_input):
+    return [q.strip() for q in user_input.split(" and ") if q]
+
+# Load zero-shot classification pipeline for dynamic intent inference
+classifier = pipeline("zero-shot-classification", model="facebook/bart-large-mnli")
+
+# Infer the most probable intent for each query part
+def infer_intent(query_parts):
+    candidate_labels = ["health", "location", "activity", "nutrition", "equipment"]
+    return {part: classifier(part, candidate_labels)["labels"][0] for part in query_parts}
+
+
+# ---------------------------
+# Algorithm 2: Topic Reclassification & Intent Divergence Detection
+# ---------------------------
+
+# Detect if user has shifted the topic mid-conversation
+def detect_topic_shift(user_input, previous_context):
+    shift_indicators = ["no", "actually", "I meant", "not really"]
+    if any(indicator in user_input.lower() for indicator in shift_indicators):
+        return classify_new_topic(user_input)
+    return previous_context
+
+# Classify new topic using zero-shot pipeline
+def classify_new_topic(text):
+    candidate_labels = ["exercise", "nutrition", "mental health", "dieting"]
+    result = classifier(text, candidate_labels)
+    return result["labels"][0]
+
+
+# ---------------------------
+# Algorithm 3: Follow-Up Action Selector
+# ---------------------------
+
+# Choose the appropriate next action based on current topic and intent
+def select_followup_action(intent, topic_context):
+    action_map = {
+        "health": "ask_clarification",
+        "nutrition": "suggest_alternative",
+        "location": "elaborate_with_kg",
+        "activity": "generate_summary",
+    }
+    return action_map.get(intent, "confirm_topic")
+
+
+# ---------------------------
+# Algorithm 4: Context-Aware Knowledge Graph Querying
+# ---------------------------
+
+# Simulated knowledge graph lookup based on user context
+hill_house_kg = {
+    "Hill House": ["treadmill", "weights", "indoor track", "yoga studio"]
+}
+
+# Query the knowledge graph for relevant entities based on intent
+def query_kg(intent, location="Hill House"):
+    if location in hill_house_kg:
+        return [item for item in hill_house_kg[location] if intent in item or "exercise" in intent]
+    return []
+
+
+# ---------------------------
+# Workflow Example: Integration & Debug Print
+# ---------------------------
+
+# Example user input for demonstration
+user_input = "What do we have in the Hill House for physical fitness and that would improve your health?"
+segments = segment_query(user_input)
+intents = infer_intent(segments)
+
+# Evaluate next step for each segment
+for part, intent in intents.items():
+    action = select_followup_action(intent, "Hill House")
+    print(f"Query: {part} | Intent: {intent} | Action: {action}")
