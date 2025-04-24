@@ -1,0 +1,72 @@
+import praw
+import requests
+from bs4 import BeautifulSoup
+
+# --------------------- Reddit Data Scraping ---------------------
+# Initialize Reddit API client 
+reddit = praw.Reddit(client_id='YOUR_CLIENT_ID',
+                     client_secret='YOUR_CLIENT_SECRET',
+                     user_agent='YOUR_USER_AGENT')
+
+# Function to scrape Reddit data for the query
+def scrape_reddit_data(query):
+    """
+    Search Reddit for posts related to the query.
+    """
+    # Search across all subreddits, or specify relevant subreddits like 'r/health', 'r/mentalhealth'
+    subreddit = reddit.subreddit('all')  
+    posts = subreddit.search(query, limit=10)  # Retrieve top 10 posts
+
+    reddit_texts = []
+    for post in posts:
+        # Combine title and text content of each post for processing
+        reddit_texts.append(post.title + " - " + post.selftext)  
+
+    return reddit_texts
+
+# Example usage of the Reddit scraper (e.g., searching for stress-related posts)
+reddit_data = scrape_reddit_data("stress headache")
+print(f"Reddit Data: {reddit_data}")
+
+# --------------------- Humana FAQ Scraping ---------------------
+# Function to scrape Humana's FAQ page (example)
+def scrape_humana_faq():
+    """
+    Scrapes Humana's FAQ page for health insurance-related information.
+    """
+    url = "https://www.humana.com/faqs"  # Example URL for Humana FAQ page
+    response = requests.get(url)
+    soup = BeautifulSoup(response.text, 'html.parser')
+
+    faq_text = []
+    # Assuming the FAQs are within <h3> tags, you can adjust this depending on the webpage structure
+    for question in soup.find_all('h3'):
+        faq_text.append(question.get_text())  # Collecting FAQ questions
+
+    return faq_text
+
+# Example usage of Humana FAQ scraper
+humana_faq_data = scrape_humana_faq()
+print(f"Humana FAQ Data: {humana_faq_data}")
+
+# --------------------- Combining Data from Various Sources ---------------------
+# Example: Querying for health-related advice, combining Reddit and Humana data
+def combine_sources(query):
+    """
+    Combine data from different sources like Reddit and Humana FAQ.
+    """
+    reddit_data = scrape_reddit_data(query)
+    humana_faq_data = scrape_humana_faq()
+
+    # Combine Reddit data and Humana FAQ data into one collection
+    combined_data = {
+        'reddit_data': reddit_data,
+        'humana_faq_data': humana_faq_data
+    }
+
+    return combined_data
+
+# Test combining data for a health query
+combined_health_data = combine_sources("stress headache")
+print(f"Combined Health Data: {combined_health_data}")
+
